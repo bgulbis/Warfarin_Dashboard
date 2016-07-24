@@ -1,0 +1,86 @@
+---
+title: "Warfarin Dosing Service"
+output: 
+  flexdashboard::flex_dashboard:
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(edwr)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(lubridate)
+library(dygraphs)
+library(xts)
+
+data.raw <- "../data/raw"
+
+# get all warfarin and consult orders
+data.orders <- read_data(data.raw, "orders") %>%
+    as.order_by() %>%
+    filter(action.type == "Order") %>%
+    mutate(action.date = floor_date(action.datetime, unit = "day"),
+           consult = !str_detect(order, "^warfarin$"))
+
+# make tidy data set
+df <- data.orders %>%
+    distinct(pie.id, action.date, consult) %>%
+    group_by(pie.id, action.date) %>%
+    mutate(value = TRUE,
+           consult = if_else(consult == TRUE, "consult", "warfarin")) %>%
+    spread(consult, value) %>%
+    mutate(warfarin = if_else(consult == TRUE & is.na(warfarin), TRUE, warfarin)) %>%
+    gather(order, value, consult, warfarin) %>%
+    filter(!is.na(value)) %>%
+    group_by(pie.id, action.date, order) %>%
+    summarize(n = n()) %>%
+    group_by(action.date, order) %>%
+    summarize(n = n()) %>%
+    spread(order, n) %>%
+    mutate(warfarin = if_else(is.na(consult), warfarin, warfarin - consult)) %>%
+    gather(order, n, -action.date) %>%
+    mutate(n = coalesce(n, 0L)) %>%
+    spread(order, n) 
+
+ts <- as.matrix(df[, 2:3]) %>% as.xts(order.by = df$action.date, tzone = "US/Central")
+
+```
+
+Page 1
+========================================================
+
+### Utilization of Dosing Service
+
+```{r}
+
+dygraph(ts, main = "Daily Warfarin Orders Managed by Pharmacy and Traditional") %>%
+    dySeries("consult", label = "Pharmacy") %>%
+    dySeries("warfarin", label = "Traditional") %>%
+    # dyOptions(stackedGraph = TRUE) %>%
+    dyOptions(colors = RColorBrewer::brewer.pal(3, "Set1")) %>%
+    # dyRangeSelector(dateWindow = c("2015-07-01", "2015-12-31"))
+    dyRoller(rollPeriod = 30)
+```
+
+> Data presented as the rolling average over a 30-day period. 
+> The rolling period can be adjusted using the text box in the lower left corner of the figure 
+
+Page 2
+========================================================
+
+### Utilization of Dosing Service
+
+```{r}
+
+dygraph(ts, main = "Daily Warfarin Orders Managed by Pharmacy and Traditional") %>%
+    dySeries("consult", label = "Pharmacy") %>%
+    dySeries("warfarin", label = "Traditional") %>%
+    # dyOptions(stackedGraph = TRUE) %>%
+    dyOptions(colors = RColorBrewer::brewer.pal(3, "Set1")) %>%
+    dyRangeSelector(dateWindow = c("2015-07-01", "2015-12-31"))
+```
+
+> Data presented as actual daily values. 
+> Adjust the time period being displayed using the selector at the bottom of the figure
