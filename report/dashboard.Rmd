@@ -17,6 +17,8 @@ library(xts)
 
 data.raw <- "../data/raw"
 
+date.start <- c("2016-01-01", "2016-06-30")
+
 # get all warfarin and consult orders
 data.orders <- read_data(data.raw, "orders") %>%
     as.order_by() %>%
@@ -72,7 +74,7 @@ Range
 ```{r}
 dyg %>%
     dyOptions(colors = RColorBrewer::brewer.pal(3, "Set1"), fillGraph = TRUE, fillAlpha = 0.4) %>%
-    dyRangeSelector(dateWindow = c("2016-01-01", "2016-06-30"))
+    dyRangeSelector(dateWindow = date.start)
 ```
 
 > Data presented as actual daily values. Adjust the time period being displayed using the selector at the bottom of the figure.
@@ -85,7 +87,7 @@ Totals
 ```{r}
 dyg %>%
     dyOptions(stackedGraph = TRUE, colors = RColorBrewer::brewer.pal(3, "Set1")) %>%
-    dyRangeSelector(dateWindow = c("2015-07-01", "2015-12-31"))
+    dyRangeSelector(dateWindow = date.start)
 ```
 
 > Data is stacked to represent total number of daily warfarin orders during the selected time period.
