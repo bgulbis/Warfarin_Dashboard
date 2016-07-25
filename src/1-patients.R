@@ -6,7 +6,7 @@ library(edwr)
 library(dplyr)
 library(lubridate)
 
-data.raw <- "../data/raw"
+data.raw <- "data/raw"
 
 # change the date to update for new patients
 dc.date <- "4/1/2016"
