@@ -46,6 +46,9 @@ df <- data.orders %>%
 
 ts <- as.matrix(df[, 2:3]) %>% as.xts(order.by = df$action.date, tzone = "US/Central")
 
+dyg <- dygraph(ts, main = "Daily Warfarin Orders") %>%
+    dySeries("consult", label = "Pharmacy") %>%
+    dySeries("warfarin", label = "Traditional") 
 ```
 
 Smoothed
@@ -54,12 +57,8 @@ Smoothed
 ### Utilization of Pharmacy Warfarin Dosing Service
 
 ```{r}
-dygraph(ts, main = "Warfarin Orders Managed by Pharmacy and Traditional") %>%
-    dySeries("consult", label = "Pharmacy") %>%
-    dySeries("warfarin", label = "Traditional") %>%
-    # dyOptions(stackedGraph = TRUE) %>%
+dyg %>%
     dyOptions(colors = RColorBrewer::brewer.pal(3, "Set1")) %>%
-    # dyRangeSelector(dateWindow = c("2015-07-01", "2015-12-31"))
     dyRoller(rollPeriod = 30)
 ```
 
@@ -71,10 +70,7 @@ Range
 ### Utilization of Pharmacy Warfarin Dosing Service
 
 ```{r}
-dygraph(ts, main = "Daily Warfarin Orders Managed by Pharmacy and Traditional") %>%
-    dySeries("consult", label = "Pharmacy") %>%
-    dySeries("warfarin", label = "Traditional") %>%
-    # dyOptions(stackedGraph = TRUE) %>%
+dyg %>%
     dyOptions(colors = RColorBrewer::brewer.pal(3, "Set1"), fillGraph = TRUE, fillAlpha = 0.4) %>%
     dyRangeSelector(dateWindow = c("2015-07-01", "2015-12-31"))
 ```
@@ -87,9 +83,9 @@ Totals
 ### Total Daily Utilization of Warfarin
 
 ```{r}
-dygraph(ts, main = "Total Daily Warfarin Orders") %>%
-    dySeries("consult", label = "Pharmacy") %>%
-    dySeries("warfarin", label = "Traditional") %>%
+dyg %>%
     dyOptions(stackedGraph = TRUE, colors = RColorBrewer::brewer.pal(3, "Set1")) %>%
     dyRangeSelector(dateWindow = c("2015-07-01", "2015-12-31"))
 ```
+
+> Data is stacked to represent total number of daily warfarin orders during the selected time period.
