@@ -72,7 +72,7 @@ Range
 ```{r}
 dyg %>%
     dyOptions(colors = RColorBrewer::brewer.pal(3, "Set1"), fillGraph = TRUE, fillAlpha = 0.4) %>%
-    dyRangeSelector(dateWindow = c("2015-07-01", "2015-12-31"))
+    dyRangeSelector(dateWindow = c("2016-01-01", "2016-06-30"))
 ```
 
 > Data presented as actual daily values. Adjust the time period being displayed using the selector at the bottom of the figure.
