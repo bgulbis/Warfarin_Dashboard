@@ -16,4 +16,5 @@ raw.patients <- read_data(data.raw, "patients") %>%
     filter(age >= 18,
            discharge.datetime >= mdy(dc.date, tz = "US/Central"))
 
-concat_encounters(raw.patients$pie.id)
+# use the output below to run EDW query: Orders - Prompt
+print(concat_encounters(raw.patients$pie.id))
