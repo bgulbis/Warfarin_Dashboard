@@ -14,6 +14,7 @@ library(stringr)
 library(lubridate)
 library(dygraphs)
 library(xts)
+library(RColorBrewer)
 
 data.raw <- "../data/raw"
 
@@ -53,31 +54,19 @@ dyg <- dygraph(ts, main = "Daily Warfarin Orders") %>%
     dySeries("warfarin", label = "Traditional") 
 ```
 
-Smoothed
+Utilization
 ========================================================
 
 ### Utilization of Pharmacy Warfarin Dosing Service
 
 ```{r}
 dyg %>%
-    dyOptions(colors = RColorBrewer::brewer.pal(3, "Set1")) %>%
-    dyRoller(rollPeriod = 30)
+    dyOptions(colors = brewer.pal(3, "Set1")) %>%
+    dyRoller(rollPeriod = 15) %>%
+    dyRangeSelector()
 ```
 
-> Data presented as the average over a rolling period of days. The rolling period can be adjusted using the text box in the lower left corner of the figure.
-
-Range
-========================================================
-
-### Utilization of Pharmacy Warfarin Dosing Service
-
-```{r}
-dyg %>%
-    dyOptions(colors = RColorBrewer::brewer.pal(3, "Set1"), fillGraph = TRUE, fillAlpha = 0.4) %>%
-    dyRangeSelector(dateWindow = date.start)
-```
-
-> Data presented as actual daily values. Adjust the time period being displayed using the selector at the bottom of the figure.
+> Data presented as the average over a rolling period of days (default is 15). The rolling period can be adjusted using the text box in the lower left corner of the figure. Set the value to 1 to show individual daily values. Adjust the time period being displayed using the selector at the bottom of the figure.
 
 Totals
 ========================================================
@@ -86,7 +75,7 @@ Totals
 
 ```{r}
 dyg %>%
-    dyOptions(stackedGraph = TRUE, colors = RColorBrewer::brewer.pal(3, "Set1")) %>%
+    dyOptions(stackedGraph = TRUE, colors = brewer.pal(3, "Set1")) %>%
     dyRangeSelector(dateWindow = date.start)
 ```
 
