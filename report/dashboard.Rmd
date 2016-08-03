@@ -91,14 +91,21 @@ INR
 data.warfarin <- read_data(data.raw, "meds") %>%
     mutate(`Clinical Event Order ID` = sample.int(100000, 1)) %>% # need to fix this before final version (re-pull data with Clinical Event Order Id)
     as.meds_sched() %>%
-    filter(med == "warfarin")
+    filter(med == "warfarin") %>%
+    arrange(pie.id, med.datetime) %>%
+    group_by(pie.id) 
 
 warf.duration <- data.warfarin %>%
-    arrange(pie.id, med.datetime) %>%
-    group_by(pie.id) %>%
     summarize(warf.start = first(med.datetime),
               warf.stop = last(med.datetime))
+
+warf.doses <- data.warfarin %>%
+    mutate(med.date = floor_date(med.datetime, "day"),
+           warf.day = as.numeric(difftime(med.date, first(med.date), units = "days"))) %>%
+    group_by(pie.id, warf.day) %>%
+    summarize(dose = sum(as.numeric(med.dose)))
     
+# calculate dose auc
 data.coags <- read_data(data.raw, "coags") %>%
     as.labs() %>%
     select(-`Clinical Event Result Type`) %>%
