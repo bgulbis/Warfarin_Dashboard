@@ -15,6 +15,7 @@ library(lubridate)
 library(dygraphs)
 library(xts)
 library(RColorBrewer)
+library(plotly)
 
 data.raw <- "../data/raw"
 
@@ -108,22 +109,6 @@ warf.doses <- data.warfarin %>%
     summarize(dose = sum(as.numeric(med.dose)))
     
 # calculate dose auc
-data.coags <- read_data(data.raw, "coags") %>%
-    as.labs() %>%
-    select(-`Clinical Event Result Type`) %>%
-    tidy_data() %>%
-    inner_join(warf.duration, by = "pie.id") %>%
-    filter(lab == "inr",
-           lab.datetime >= floor_date(warf.start, "day") - days(1),
-           lab.datetime <= ceiling_date(warf.stop, "day") + days(1)) %>%
-    arrange(pie.id, lab.datetime) %>%
-    mutate(warf.day = as.numeric(difftime(floor_date(lab.datetime, "day"), floor_date(warf.start, "day"), units = "days"))) %>%
-    group_by(pie.id, warf.day) %>%
-    summarize(inr = max(lab.result))
-
-# d <- data.coags %>%
-#     full_join(warf.doses, by=c("pie.id", "warf.day"))
-
 ds.pts <- data.orders %>%
     filter(consult == TRUE) %>%
     distinct(pie.id) %>%
@@ -143,9 +128,49 @@ first.dose <- doses %>%
     group_by(pie.id, year, group) %>%
     summarize(dose = first(dose))
     
-library(plotly)
-# plot_ly(data = d, x = warf.day, y = inr, color = dose, mode = "markers")
-plot_ly(data = first.dose, x = group, y = dose, color = year, type = "box") %>%
+plot_ly(data = first.dose, x = group, y = dose, color = year, colors = "Set1", type = "box") %>%
     layout(boxmode = "group")
+```
+
+INR
+========================================================
+
+### Mean INR Days 1 to 10
+
+```{r}
+data.coags <- read_data(data.raw, "coags") %>%
+    as.labs() %>%
+    select(-`Clinical Event Result Type`) %>%
+    tidy_data() %>%
+    inner_join(warf.duration, by = "pie.id") %>%
+    filter(lab == "inr",
+           lab.datetime >= floor_date(warf.start, "day") - days(1),
+           lab.datetime <= ceiling_date(warf.stop, "day") + days(1)) %>%
+    arrange(pie.id, lab.datetime) %>%
+    mutate(warf.day = as.numeric(difftime(floor_date(lab.datetime, "day"), floor_date(warf.start, "day"), units = "days"))) %>%
+    group_by(pie.id, warf.day) %>%
+    summarize(inr = max(lab.result))
+
+inr.first <- data.coags %>%
+    group_by(pie.id) %>%
+    filter(warf.day <= 0) %>%
+    summarize(inr.first = last(inr))
+
+d <- data.coags %>%
+    left_join(ds.pts, by = "pie.id") %>%
+    mutate(group = if_else(pharmacy == TRUE, "pharmacy", "traditional", "traditional")) %>%
+    # left_join(inr.first, by = "pie.id") %>%
+    # mutate(inr.change = inr - inr.first) %>%
+    filter(warf.day %in% 1:10) %>%
+    # mutate(warf.day = as.character(warf.day)) %>%
+    group_by(group, warf.day) %>%
+    summarize(inr.mean = mean(inr, na.rm = TRUE),
+              inr.sd = sd(inr, na.rm = TRUE),
+              inr.sem = inr.sd / sqrt(length(inr)))
+#     full_join(warf.doses, by=c("pie.id", "warf.day"))
+
+plot_ly(data = d, x = warf.day, y = inr.mean, color = group, mode = "markers") %>%
+    add_trace(group = group, x = warf.day, y = inr.mean, error_y = list(type = "data", array = d$inr.sem), data = d)
+
 ```
 
