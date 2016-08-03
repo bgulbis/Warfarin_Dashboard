@@ -82,17 +82,18 @@ dyg %>%
 
 > Data is stacked to represent total number of daily warfarin orders during the selected time period.
 
-INR
+Dosing
 ========================================================
 
-### INR Response
+### Initial Warfarin Dose
 
 ```{r}
+ref <- data_frame(name = "warfarin", type = "med", group = "sched")
+
 data.warfarin <- read_data(data.raw, "meds") %>%
     mutate(`Clinical Event Order ID` = sample.int(100000, 1)) %>% # need to fix this before final version (re-pull data with Clinical Event Order Id)
     as.meds_sched() %>%
-    filter(med == "warfarin") %>%
-    arrange(pie.id, med.datetime) %>%
+    tidy_data(ref = ref) %>%
     group_by(pie.id) 
 
 warf.duration <- data.warfarin %>%
@@ -101,21 +102,50 @@ warf.duration <- data.warfarin %>%
 
 warf.doses <- data.warfarin %>%
     mutate(med.date = floor_date(med.datetime, "day"),
+           warf.year = floor_date(med.datetime, "year"),
            warf.day = as.numeric(difftime(med.date, first(med.date), units = "days"))) %>%
-    group_by(pie.id, warf.day) %>%
+    group_by(pie.id, warf.year, warf.day) %>%
     summarize(dose = sum(as.numeric(med.dose)))
     
 # calculate dose auc
 data.coags <- read_data(data.raw, "coags") %>%
     as.labs() %>%
     select(-`Clinical Event Result Type`) %>%
+    tidy_data() %>%
     inner_join(warf.duration, by = "pie.id") %>%
     filter(lab == "inr",
            lab.datetime >= floor_date(warf.start, "day") - days(1),
            lab.datetime <= ceiling_date(warf.stop, "day") + days(1)) %>%
     arrange(pie.id, lab.datetime) %>%
-    mutate(warf.day = as.numeric(difftime(floor_date(lab.datetime, "day"), floor_date(warf.start, "day"), units = "days")))
+    mutate(warf.day = as.numeric(difftime(floor_date(lab.datetime, "day"), floor_date(warf.start, "day"), units = "days"))) %>%
+    group_by(pie.id, warf.day) %>%
+    summarize(inr = max(lab.result))
 
+# d <- data.coags %>%
+#     full_join(warf.doses, by=c("pie.id", "warf.day"))
 
+ds.pts <- data.orders %>%
+    filter(consult == TRUE) %>%
+    distinct(pie.id) %>%
+    mutate(pharmacy = TRUE)
+
+high.dose <- warf.doses %>%
+    filter(dose > 20) %>%
+    distinct(pie.id)
+
+doses <- warf.doses %>%
+    filter(!(pie.id %in% high.dose$pie.id)) %>%
+    left_join(ds.pts, by = "pie.id") %>%
+    mutate(group = if_else(pharmacy == TRUE, "pharmacy", "traditional", "traditional"))
+
+first.dose <- doses %>%
+    mutate(year = as.character(year(warf.year))) %>%
+    group_by(pie.id, year, group) %>%
+    summarize(dose = first(dose))
+    
+library(plotly)
+# plot_ly(data = d, x = warf.day, y = inr, color = dose, mode = "markers")
+plot_ly(data = first.dose, x = group, y = dose, color = year, type = "box") %>%
+    layout(boxmode = "group")
 ```
 
