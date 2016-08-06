@@ -108,13 +108,27 @@ warf.doses <- data.warfarin %>%
     group_by(pie.id, warf.year, warf.day) %>%
     summarize(dose = sum(as.numeric(med.dose)))
     
+# time series of dosing
+library(zoo)
+warf.ts <- data.warfarin %>%
+    mutate(med.date = floor_date(med.datetime, "day")) %>%
+    group_by(pie.id, med.date) %>%
+    summarize(med.dose = sum(med.dose)) %>%
+    
+
 # calculate dose auc
+warf.auc <- data.warfarin %>%
+    ungroup() %>%
+    calc_runtime() 
+    # summarize_data()
+
 ds.pts <- data.orders %>%
     filter(consult == TRUE) %>%
     distinct(pie.id) %>%
     mutate(pharmacy = TRUE)
 
 high.dose <- warf.doses %>%
+    ungroup %>%
     filter(dose > 20) %>%
     distinct(pie.id)
 
