@@ -92,7 +92,6 @@ Dosing
 ref <- data_frame(name = "warfarin", type = "med", group = "sched")
 
 data.warfarin <- read_data(data.raw, "meds") %>%
-    mutate(`Clinical Event Order ID` = sample.int(100000, 1)) %>% # need to fix this before final version (re-pull data with Clinical Event Order Id)
     as.meds_sched() %>%
     tidy_data(ref = ref) %>%
     group_by(pie.id) 
