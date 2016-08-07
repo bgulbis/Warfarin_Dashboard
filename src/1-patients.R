@@ -2,11 +2,15 @@
 #
 # get list of patient encounters
 
+library(dirr)
 library(edwr)
 library(dplyr)
 library(lubridate)
 
 data.raw <- "data/raw"
+
+# compress data files
+gzip_files(data.raw)
 
 # change the date to update for new patients
 dc.date <- "4/1/2016"
