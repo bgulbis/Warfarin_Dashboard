@@ -92,7 +92,6 @@ Dosing
 ref <- data_frame(name = "warfarin", type = "med", group = "sched")
 
 data.warfarin <- read_data(data.raw, "meds") %>%
-    mutate(`Clinical Event Order ID` = sample.int(100000, 1)) %>% # need to fix this before final version (re-pull data with Clinical Event Order Id)
     as.meds_sched() %>%
     tidy_data(ref = ref) %>%
     group_by(pie.id) 
@@ -107,14 +106,14 @@ warf.doses <- data.warfarin %>%
            warf.day = as.numeric(difftime(med.date, first(med.date), units = "days"))) %>%
     group_by(pie.id, warf.year, warf.day) %>%
     summarize(dose = sum(as.numeric(med.dose)))
-    
-# calculate dose auc
+
 ds.pts <- data.orders %>%
     filter(consult == TRUE) %>%
     distinct(pie.id) %>%
     mutate(pharmacy = TRUE)
 
 high.dose <- warf.doses %>%
+    ungroup %>%
     filter(dose > 20) %>%
     distinct(pie.id)
 
@@ -138,7 +137,7 @@ INR
 ### Mean INR Days 1 to 10
 
 ```{r}
-data.coags <- read_data(data.raw, "coags") %>%
+data.coags <- read_data(data.raw, "labs_coag") %>%
     as.labs() %>%
     select(-`Clinical Event Result Type`) %>%
     tidy_data() %>%
@@ -171,6 +170,40 @@ d <- data.coags %>%
 
 plot_ly(data = d, x = warf.day, y = inr.mean, color = group, mode = "markers") %>%
     add_trace(group = group, x = warf.day, y = inr.mean, error_y = list(type = "data", array = d$inr.sem), data = d)
+
+```
+
+Dosing Data (Test)
+========================================================
+
+### Dosing Data
+
+```{r}
+    
+# time series of dosing
+library(zoo)
+library(purrr)
+warf.ts <- data.warfarin %>%
+    mutate(med.date = floor_date(med.datetime, unit = "day")) %>%
+    group_by(pie.id, med.date) %>%
+    summarize(med.dose = sum(med.dose)) %>%
+    group_by(pie.id) %>%
+    do(ts = zoo(.$med.dose, order.by = .$med.date)) 
+    # dmap_at("ts", ~ merge(.x, zoo(, seq(start(.x), end(.x), by = "day")), fill = 0))
+    # slice_rows("pie.id") %>%
+    # by_slice(map, zoo)
+
+tsr <- map(warf.ts$ts, ~ merge(.x, zoo(, seq(start(.x), end(.x), by = "day")), fill = 0))
+
+# zts <- zoo(wts$med.dose, order.by = wts$med.date)
+# ztsreg <- merge(zts, zoo(, seq(start(zts), end(zts), by = "day")), fill = 0)
+
+# calculate dose auc
+# warf.auc <- data.warfarin %>%
+#     ungroup() %>%
+#     calc_runtime() 
+    # summarize_data()
+
 
 ```
 
