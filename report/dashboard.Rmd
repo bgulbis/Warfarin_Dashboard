@@ -125,10 +125,10 @@ doses <- warf.doses %>%
 first.dose <- doses %>%
     mutate(year = as.character(year(warf.year))) %>%
     group_by(pie.id, year, group) %>%
-    summarize(dose = first(dose))
+    summarize(dose = first(dose)) %>%
+    group_by(group, year)
     
-plot_ly(data = first.dose, x = group, y = dose, color = year, colors = "Set1", type = "box") %>%
-    layout(boxmode = "group")
+plot_ly(data = first.dose, x = ~group, y = ~dose, color = ~year, colors = "Set1", type = "box") 
 ```
 
 INR
@@ -172,42 +172,21 @@ d <- data.coags %>%
     arrange(group, year, warf.day)
 #     full_join(warf.doses, by=c("pie.id", "warf.day"))
 
-library(rbokeh)
-figure(d) %>%
-    ly_points(x = warf.day, y = inr.mean, glyph = group, color = year, hover = c(group, warf.day, inr.mean)) %>%
-    ly_lines(x = warf.day, y = inr.mean, group = group, color = year)
+# library(rbokeh)
+# figure(d) %>%
+#     ly_points(x = warf.day, y = inr.mean, glyph = group, color = year, hover = c(group, warf.day, inr.mean)) %>%
+#     ly_lines(x = warf.day, y = inr.mean, group = group, color = year)
 
 ```
 
-Plotly INR
-========================================================
-
-### Mean INR Days 1 to 10
-
 ```{r}
-dp <- filter(d, group == "pharmacy")
-dt <- filter(d, group == "traditional")
+df <- group_by(d, group, year)
 
-d <- mutate(d, group = factor(group),
-            year = factor(year))
-
-plot_ly(data = d, 
-        x = warf.day, 
-        y = inr.mean,
-        symbol = group,
-        # marker = list(color = )
-        # group = group,
-        # group = year,
-        # color = year,
-        # line = list(dash = "solid"),
-        colors = "Set1") %>%
-    #     name = "pharmacy", 
-    #     line = list(dash = "solid")) %>%
-    add_trace(x = warf.day,
-              y = inr.mean,
-              color = year)
-    #           # error_y = list(type = "data", array = inr.sem),
-    #           line = list(dash = "dash")) 
+plot_ly(data = df, 
+        x = ~warf.day, 
+        y = ~inr.mean) %>%
+    add_markers(symbol = ~group) %>%
+    add_lines(color = ~year)
 
     # layout(updatemenus = list(
     #     buttons = list(
