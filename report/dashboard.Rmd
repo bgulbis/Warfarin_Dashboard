@@ -146,8 +146,9 @@ data.coags <- read_data(data.raw, "labs_coag") %>%
            lab.datetime >= floor_date(warf.start, "day") - days(1),
            lab.datetime <= ceiling_date(warf.stop, "day") + days(1)) %>%
     arrange(pie.id, lab.datetime) %>%
-    mutate(warf.day = as.numeric(difftime(floor_date(lab.datetime, "day"), floor_date(warf.start, "day"), units = "days"))) %>%
-    group_by(pie.id, warf.day) %>%
+    mutate(warf.day = as.numeric(difftime(floor_date(lab.datetime, "day"), floor_date(warf.start, "day"), units = "days")),
+           warf.year = floor_date(warf.start, "year")) %>%
+    group_by(pie.id, warf.year, warf.day) %>%
     summarize(inr = max(lab.result))
 
 inr.first <- data.coags %>%
@@ -157,19 +158,43 @@ inr.first <- data.coags %>%
 
 d <- data.coags %>%
     left_join(ds.pts, by = "pie.id") %>%
-    mutate(group = if_else(pharmacy == TRUE, "pharmacy", "traditional", "traditional")) %>%
+    mutate(group = if_else(pharmacy == TRUE, "pharmacy", "traditional", "traditional"),
+           year = as.character(year(warf.year))) %>%
     # left_join(inr.first, by = "pie.id") %>%
     # mutate(inr.change = inr - inr.first) %>%
     filter(warf.day %in% 1:10) %>%
     # mutate(warf.day = as.character(warf.day)) %>%
-    group_by(group, warf.day) %>%
+    group_by(group, year, warf.day) %>%
     summarize(inr.mean = mean(inr, na.rm = TRUE),
               inr.sd = sd(inr, na.rm = TRUE),
-              inr.sem = inr.sd / sqrt(length(inr)))
+              inr.sem = inr.sd / sqrt(length(inr))) %>%
+    ungroup() %>%
+    arrange(group, year, warf.day)
 #     full_join(warf.doses, by=c("pie.id", "warf.day"))
 
-plot_ly(data = d, x = warf.day, y = inr.mean, color = group, mode = "markers") %>%
-    add_trace(group = group, x = warf.day, y = inr.mean, error_y = list(type = "data", array = d$inr.sem), data = d)
+dp <- filter(d, group == "pharmacy")
+dt <- filter(d, group == "traditional")
+
+plot_ly(data = dp, x = warf.day, y = inr.mean, color = year, name = "pharmacy", line = list(dash = "solid")) %>%
+    add_trace(data = dt, 
+              x = warf.day, 
+              y = inr.mean, 
+              color = year, 
+              # error_y = list(type = "data", array = inr.sem),
+              line = list(dash = "dash")) %>%
+    layout(updatemenus = list(
+        buttons = list(
+            list(method = "restyle",
+                 args = list("visible", list(TRUE, FALSE)),
+                 label = "Pharmacy"),
+            list(method = "restyle",
+                 args = list("visible", list(FALSE, TRUE)),
+                 label = "Traditional"),
+            list(method = "restyle",
+                 args = list("visible", list(TRUE, TRUE)),
+                 label = "Both")),
+        visible = TRUE
+    ))
 
 ```
 
