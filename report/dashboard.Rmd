@@ -188,18 +188,26 @@ Plotly INR
 dp <- filter(d, group == "pharmacy")
 dt <- filter(d, group == "traditional")
 
-plot_ly(data = dp, 
+d <- mutate(d, group = factor(group),
+            year = factor(year))
+
+plot_ly(data = d, 
         x = warf.day, 
-        y = inr.mean, 
-        color = year, 
-        name = "pharmacy", 
-        line = list(dash = "solid")) %>%
-    add_trace(data = dt,
-              x = warf.day,
+        y = inr.mean,
+        symbol = group,
+        # marker = list(color = )
+        # group = group,
+        # group = year,
+        # color = year,
+        # line = list(dash = "solid"),
+        colors = "Set1") %>%
+    #     name = "pharmacy", 
+    #     line = list(dash = "solid")) %>%
+    add_trace(x = warf.day,
               y = inr.mean,
-              color = year,
-              # error_y = list(type = "data", array = inr.sem),
-              line = list(dash = "dash")) 
+              color = year)
+    #           # error_y = list(type = "data", array = inr.sem),
+    #           line = list(dash = "dash")) 
 
     # layout(updatemenus = list(
     #     buttons = list(
