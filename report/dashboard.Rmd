@@ -172,31 +172,50 @@ d <- data.coags %>%
     arrange(group, year, warf.day)
 #     full_join(warf.doses, by=c("pie.id", "warf.day"))
 
+library(rbokeh)
+figure(d) %>%
+    ly_points(x = warf.day, y = inr.mean, glyph = group, color = year, hover = c(group, warf.day, inr.mean)) %>%
+    ly_lines(x = warf.day, y = inr.mean, group = group, color = year)
+
+```
+
+Plotly INR
+========================================================
+
+### Mean INR Days 1 to 10
+
+```{r}
 dp <- filter(d, group == "pharmacy")
 dt <- filter(d, group == "traditional")
 
-plot_ly(data = dp, x = warf.day, y = inr.mean, color = year, name = "pharmacy", line = list(dash = "solid")) %>%
-    add_trace(data = dt, 
-              x = warf.day, 
-              y = inr.mean, 
-              color = year, 
+plot_ly(data = dp, 
+        x = warf.day, 
+        y = inr.mean, 
+        color = year, 
+        name = "pharmacy", 
+        line = list(dash = "solid")) %>%
+    add_trace(data = dt,
+              x = warf.day,
+              y = inr.mean,
+              color = year,
               # error_y = list(type = "data", array = inr.sem),
-              line = list(dash = "dash")) %>%
-    layout(updatemenus = list(
-        buttons = list(
-            list(method = "restyle",
-                 args = list("visible", list(TRUE, FALSE)),
-                 label = "Pharmacy"),
-            list(method = "restyle",
-                 args = list("visible", list(FALSE, TRUE)),
-                 label = "Traditional"),
-            list(method = "restyle",
-                 args = list("visible", list(TRUE, TRUE)),
-                 label = "Both")),
-        visible = TRUE
-    ))
+              line = list(dash = "dash")) 
 
+    # layout(updatemenus = list(
+    #     buttons = list(
+    #         list(method = "restyle",
+    #              args = list("visible", list(TRUE, FALSE)),
+    #              label = "Pharmacy"),
+    #         list(method = "restyle",
+    #              args = list("visible", list(FALSE, TRUE)),
+    #              label = "Traditional"),
+    #         list(method = "restyle",
+    #              args = list("visible", list(TRUE, TRUE)),
+    #              label = "Both")),
+    #     visible = TRUE
+    # ))
 ```
+
 
 Dosing Data (Test)
 ========================================================
