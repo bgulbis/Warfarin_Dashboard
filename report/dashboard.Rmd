@@ -121,14 +121,15 @@ doses <- warf.doses %>%
     filter(!(pie.id %in% high.dose$pie.id)) %>%
     left_join(ds.pts, by = "pie.id") %>%
     mutate(group = if_else(pharmacy == TRUE, "pharmacy", "traditional", "traditional"))
-
+# add indication
 first.dose <- doses %>%
     mutate(year = as.character(year(warf.year))) %>%
     group_by(pie.id, year, group) %>%
     summarize(dose = first(dose)) %>%
     group_by(group, year)
     
-plot_ly(data = first.dose, x = ~group, y = ~dose, color = ~year, colors = "Set1", type = "box") 
+plot_ly(data = first.dose, x = ~factor(year), y = ~dose, color = ~group, colors = "Set1") %>%
+    add_boxplot()
 ```
 
 INR
