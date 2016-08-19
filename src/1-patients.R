@@ -13,7 +13,7 @@ data.raw <- "data/raw"
 gzip_files(data.raw)
 
 # change the date to update for new patients
-dc.date <- "7/1/2016"
+dc.date <- "4/1/2016"
 
 raw.patients <- read_data(data.raw, "patients") %>%
     as.patients() %>%
