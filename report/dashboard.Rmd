@@ -116,7 +116,13 @@ first.dose <- doses %>%
     group_by(group, year)
     
 plot_ly(data = first.dose, x = ~factor(year), y = ~dose, color = ~group, colors = "Set1") %>%
-    add_boxplot()
+    add_boxplot() 
+
+# library(rbokeh)
+# figure() %>%
+#     ly_boxplot(x = factor(year), y = dose, data = first.dose)
+
+
 ```
 
 INR
@@ -157,22 +163,13 @@ d <- data.coags %>%
               inr.sd = sd(inr, na.rm = TRUE),
               inr.sem = inr.sd / sqrt(length(inr))) %>%
     ungroup() %>%
-    arrange(group, year, warf.day)
-#     full_join(warf.doses, by=c("pie.id", "warf.day"))
+    arrange(group, year, warf.day) %>%
+    group_by(group, year)
 
-# library(rbokeh)
-# figure(d) %>%
-#     ly_points(x = warf.day, y = inr.mean, glyph = group, color = year, hover = c(group, warf.day, inr.mean)) %>%
-#     ly_lines(x = warf.day, y = inr.mean, group = group, color = year)
-
-```
-
-```{r}
-df <- group_by(d, group, year)
-
-plot_ly(data = df, 
+plot_ly(data = d, 
         x = ~warf.day, 
-        y = ~inr.mean) %>%
+        y = ~inr.mean, 
+        colors = "Set1") %>%
     add_markers(symbol = ~group) %>%
     add_lines(color = ~year)
 

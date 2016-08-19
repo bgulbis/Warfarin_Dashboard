@@ -18,7 +18,8 @@ dc.date <- "7/1/2016"
 raw.patients <- read_data(data.raw, "patients") %>%
     as.patients() %>%
     filter(age >= 18,
-           discharge.datetime >= mdy(dc.date, tz = "US/Central"))
+           discharge.datetime >= mdy(dc.date, tz = "US/Central") |
+               is.na(discharge.datetime))
 
 # use the output below to run EDW queries:
 #   Orders - Prompt
