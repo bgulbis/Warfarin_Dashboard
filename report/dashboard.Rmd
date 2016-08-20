@@ -143,6 +143,9 @@ d3heatmap(tmp, scale = "column", colors = "OrRd", dendrogram = "none")
 Dosing
 ========================================================
 
+Column {.tabset}
+--------------------------------------------------------
+
 ### Initial Warfarin Dose
 
 ```{r}
@@ -159,12 +162,11 @@ warf.duration <- data.warfarin %>%
 
 warf.doses <- data.warfarin %>%
     mutate(med.date = floor_date(med.datetime, "day"),
+           warf.month = floor_date(med.datetime, "month"),
            warf.year = floor_date(med.datetime, "year"),
            warf.day = as.numeric(difftime(med.date, first(med.date), units = "days"))) %>%
-    group_by(pie.id, warf.year, warf.day) %>%
-    summarize(dose = sum(as.numeric(med.dose))) %>%
-    group_by(pie.id, warf.year) %>%
-    mutate(cumdose = cumsum(dose))
+    group_by(pie.id, warf.year, warf.month, warf.day) %>%
+    summarize(dose = sum(as.numeric(med.dose))) 
 
 ds.pts <- data.orders %>%
     filter(consult == TRUE) %>%
@@ -179,10 +181,12 @@ high.dose <- warf.doses %>%
 doses <- warf.doses %>%
     filter(!(pie.id %in% high.dose$pie.id)) %>%
     left_join(ds.pts, by = "pie.id") %>%
-    mutate(group = if_else(pharmacy == TRUE, "pharmacy", "traditional", "traditional"))
+    mutate(group = if_else(pharmacy == TRUE, "pharmacy", "traditional", "traditional"),
+           year = as.character(year(warf.year)))
+
 # add indication
 first.dose <- doses %>%
-    mutate(year = as.character(year(warf.year))) %>%
+    # mutate(year = as.character(year(warf.year))) %>%
     group_by(pie.id, year, group) %>%
     summarize(dose = first(dose)) %>%
     group_by(group, year)
@@ -190,6 +194,52 @@ first.dose <- doses %>%
 plot_ly(data = first.dose, x = ~group, y = ~dose, color = ~factor(year), colors = "Set1") %>%
     add_boxplot() %>%
     layout(boxmode = "group")
+```
+
+### Annual Daily Dose
+
+```{r}
+df <- doses %>%
+    filter(warf.day %in% 0:10) %>%
+    group_by(group, year, warf.day) %>%
+    summarize(dose.mean = mean(dose, na.rm = TRUE),
+              dose.sd = sd(dose, na.rm = TRUE),
+              dose.sem = dose.sd / sqrt(length(dose)),
+              num.pts = n()) %>%
+    ungroup() %>%
+    arrange(group, year, warf.day) %>%
+    group_by(group, year)
+
+plot_ly(data = df, 
+        x = ~warf.day, 
+        y = ~dose.mean, 
+        colors = "Set1") %>%
+    add_markers(symbol = ~group) %>%
+    add_lines(color = ~year)
+```
+
+### Rolling 6-Month Daily Dose
+
+```{r}
+df <- doses %>%
+    ungroup() %>%
+    filter(warf.day %in% 0:10,
+           warf.month >= max(warf.month) - months(6)) %>%
+    group_by(group, warf.day) %>%
+    summarize(dose.mean = mean(dose, na.rm = TRUE),
+              dose.sd = sd(dose, na.rm = TRUE),
+              dose.sem = dose.sd / sqrt(length(dose)),
+              num.pts = n()) %>%
+    ungroup() %>%
+    arrange(group, warf.day) %>%
+    group_by(group)
+
+plot_ly(data = df, 
+        x = ~warf.day, 
+        y = ~dose.mean, 
+        colors = "Set1") %>%
+    add_lines(color = ~group) %>%
+    add_markers(color = ~group, size = ~num.pts) 
 ```
 
 INR
