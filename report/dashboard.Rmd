@@ -92,7 +92,9 @@ warf.doses <- data.warfarin %>%
            warf.year = floor_date(med.datetime, "year"),
            warf.day = as.numeric(difftime(med.date, first(med.date), units = "days"))) %>%
     group_by(pie.id, warf.year, warf.day) %>%
-    summarize(dose = sum(as.numeric(med.dose)))
+    summarize(dose = sum(as.numeric(med.dose))) %>%
+    group_by(pie.id, warf.year) %>%
+    mutate(cumdose = cumsum(dose))
 
 ds.pts <- data.orders %>%
     filter(consult == TRUE) %>%
@@ -115,8 +117,27 @@ first.dose <- doses %>%
     summarize(dose = first(dose)) %>%
     group_by(group, year)
     
-plot_ly(data = first.dose, x = ~factor(year), y = ~dose, color = ~group, colors = "Set1") %>%
-    add_boxplot() 
+plot_ly(data = first.dose, x = ~group, y = ~dose, color = ~factor(year), colors = "Set1") %>%
+    add_boxplot() %>%
+    layout(updatemenus = list(
+        buttons = list(
+            list(method = "restyle",
+                 args = list("visible", list(TRUE, FALSE, FALSE, FALSE, FALSE)),
+                 label = "2012"),
+            list(method = "restyle",
+                 args = list("visible", list(FALSE, TRUE, FALSE, FALSE, FALSE)),
+                 label = "2013"),
+            list(method = "restyle",
+                 args = list("visible", list(FALSE, FALSE, TRUE, FALSE, FALSE)),
+                 label = "2014"),
+            list(method = "restyle",
+                 args = list("visible", list(FALSE, FALSE, FALSE, TRUE, FALSE)),
+                 label = "2015"),
+            list(method = "restyle",
+                 args = list("visible", list(FALSE, FALSE, FALSE, FALSE, TRUE)),
+                 label = "2016")),
+        visible = TRUE
+    ))
 
 # library(rbokeh)
 # figure() %>%
@@ -173,18 +194,26 @@ plot_ly(data = d,
     add_markers(symbol = ~group) %>%
     add_lines(color = ~year)
 
-    # layout(updatemenus = list(
-    #     buttons = list(
-    #         list(method = "restyle",
-    #              args = list("visible", list(TRUE, FALSE)),
-    #              label = "Pharmacy"),
-    #         list(method = "restyle",
-    #              args = list("visible", list(FALSE, TRUE)),
-    #              label = "Traditional"),
-    #         list(method = "restyle",
-    #              args = list("visible", list(TRUE, TRUE)),
-    #              label = "Both")),
-    #     visible = TRUE
-    # ))
 ```
+
+INR vs Dose
+========================================================
+
+### Cumulative Dose
+
+```{r}
+df.inr.dose <- full_join(warf.doses, data.coags, by = c("pie.id", "warf.year", "warf.day")) %>%
+    left_join(ds.pts, by = "pie.id") %>%
+    mutate(group = if_else(pharmacy == TRUE, "pharmacy", "traditional", "traditional"),
+           year = as.character(year(warf.year))) %>%
+    filter(cumdose <= 250)
+    
+library(ggplot2)
+
+ggplot(df.inr.dose, aes(x = cumdose, y = inr, color = group)) +
+    geom_point(alpha = 0.3) +
+    facet_grid(. ~ year)
+
+```
+
 
