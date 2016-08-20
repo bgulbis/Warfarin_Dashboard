@@ -140,7 +140,6 @@ d3heatmap(tmp, scale = "column", colors = "OrRd", dendrogram = "none")
 
 ```
 
-
 Dosing
 ========================================================
 
@@ -196,7 +195,10 @@ plot_ly(data = first.dose, x = ~group, y = ~dose, color = ~factor(year), colors 
 INR
 ========================================================
 
-### Mean INR Days 1 to 10
+Column {.tabset}
+--------------------------------------------------------
+
+### Annual Mean INR
 
 ```{r}
 data.coags <- read_data(data.raw, "labs_coag") %>%
@@ -208,9 +210,14 @@ data.coags <- read_data(data.raw, "labs_coag") %>%
            lab.datetime >= floor_date(warf.start, "day") - days(1),
            lab.datetime <= ceiling_date(warf.stop, "day") + days(1)) %>%
     arrange(pie.id, lab.datetime) %>%
-    mutate(warf.day = as.numeric(difftime(floor_date(lab.datetime, "day"), floor_date(warf.start, "day"), units = "days")),
-           warf.year = floor_date(warf.start, "year")) %>%
-    group_by(pie.id, warf.year, warf.day) %>%
+    mutate(
+        warf.day = as.numeric(difftime(
+            floor_date(lab.datetime, "day"), 
+            floor_date(warf.start, "day"), 
+            units = "days")),
+        warf.month = floor_date(warf.start, "month"),
+        warf.year = floor_date(warf.start, "year")) %>%
+    group_by(pie.id, warf.year, warf.month, warf.day) %>%
     summarize(inr = max(lab.result))
 
 inr.first <- data.coags %>%
@@ -224,12 +231,13 @@ d <- data.coags %>%
            year = as.character(year(warf.year))) %>%
     # left_join(inr.first, by = "pie.id") %>%
     # mutate(inr.change = inr - inr.first) %>%
-    filter(warf.day %in% 1:10) %>%
+    filter(warf.day %in% 0:10) %>%
     # mutate(warf.day = as.character(warf.day)) %>%
     group_by(group, year, warf.day) %>%
     summarize(inr.mean = mean(inr, na.rm = TRUE),
               inr.sd = sd(inr, na.rm = TRUE),
-              inr.sem = inr.sd / sqrt(length(inr))) %>%
+              inr.sem = inr.sd / sqrt(length(inr)),
+              num.pts = n()) %>%
     ungroup() %>%
     arrange(group, year, warf.day) %>%
     group_by(group, year)
@@ -241,4 +249,32 @@ plot_ly(data = d,
     add_markers(symbol = ~group) %>%
     add_lines(color = ~year)
 ```
+
+### Rolling 6-Month Mean INR
+
+```{r}
+d <- data.coags %>%
+    left_join(ds.pts, by = "pie.id") %>%
+    mutate(group = if_else(pharmacy == TRUE, "pharmacy", "traditional", "traditional")) %>%
+    ungroup() %>%
+    filter(warf.day %in% 0:10,
+           warf.month >= max(warf.month) - months(6)) %>%
+    group_by(group, warf.day) %>%
+    summarize(inr.mean = mean(inr, na.rm = TRUE),
+              inr.sd = sd(inr, na.rm = TRUE),
+              inr.sem = inr.sd / sqrt(length(inr)),
+              num.pts = n()) %>%
+    ungroup() %>%
+    arrange(group, warf.day) %>%
+    # mutate(warf.month = as.character(warf.month)) %>%
+    group_by(group)
+
+plot_ly(data = d, 
+        x = ~warf.day, 
+        y = ~inr.mean, 
+        colors = "Set1") %>%
+    add_lines(color = ~group) %>%
+    add_markers(color = ~group, size = ~num.pts) 
+```
+
 
