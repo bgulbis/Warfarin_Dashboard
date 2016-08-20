@@ -71,6 +71,75 @@ dyg %>%
 
 > Data presented as the average over a rolling period of days (default is 15). The rolling period can be adjusted using the text box in the lower left corner of the figure. Set the value to 1 to show individual daily values. Adjust the time period being displayed using the selector at the bottom of the figure.
 
+Orders by Unit
+========================================================
+
+Column {.tabset}
+--------------------------------------------------------
+
+### Annual Consults by Hospital Unit
+
+```{r}
+
+unit.list <- list("HH 3CIM" = "HH 3CP", 
+                  "HH 3ECP" = "HH 3CP", 
+                  "HH 3WCP" = "HH 3CP", 
+                  "HH 4HVI CIMU" = "HVI CIMU", 
+                  "Jones 6 West" = "HH 6JP",
+                  "HH 3JSP" = "HH 3JP",
+                  "HH 5ECP" = "HH 5CP",
+                  "HH 5WCP" = "HH 5CP",
+                  "HH WCAN" = "HH WC6N",
+                  "HH 5EJP" = "HH 5JP",
+                  "HH 5WJP" = "HH 5JP",
+                  "HH 6EJP" = "HH 6JP",
+                  "HH 6WJP" = "HH 6JP",
+                  "HH 8NJP" = "HH 8JP",
+                  "HH 8WJP" = "HH 8JP",
+                  "HH 9EJP" = "HH 9JP",
+                  "HH 9WJP" = "HH 9JP")
+
+units <- data.orders %>%
+    filter(consult == TRUE) %>%
+    distinct(pie.id, order.unit, action.date) %>%
+    mutate(action.year = floor_date(action.date, "year"),
+           year = as.numeric(year(action.year)),
+           order.unit = str_replace_all(order.unit, unit.list)) %>%
+    group_by(order.unit, year) %>%
+    summarize(consults = n()) %>%
+    ungroup() %>%
+    mutate(order.unit = coalesce(order.unit, "Other")) %>%
+    spread(year, consults, fill = 0)
+
+tmp <- as.matrix(units[, -1])
+rownames(tmp) <- units$order.unit
+
+d3heatmap(tmp, scale = "column", colors = "OrRd", dendrogram = "none")
+```
+
+### Rolling 6-Month Consults by Unit
+
+```{r}
+units.month <- data.orders %>%
+    filter(consult == TRUE) %>%
+    distinct(pie.id, order.unit, action.date) %>%
+    mutate(action.month = floor_date(action.date, "month"),
+           # year = as.numeric(year(action.year)),
+           order.unit = str_replace_all(order.unit, unit.list)) %>%
+    filter(action.month >= max(action.month) - months(6)) %>%
+    group_by(order.unit, action.month) %>%
+    summarize(consults = n()) %>%
+    ungroup() %>%
+    mutate(order.unit = coalesce(order.unit, "Other")) %>%
+    spread(action.month, consults, fill = 0)
+
+tmp <- as.matrix(units.month[, -1])
+rownames(tmp) <- units.month$order.unit
+
+d3heatmap(tmp, scale = "column", colors = "OrRd", dendrogram = "none")
+
+```
+
 Dosing
 ========================================================
 
@@ -121,37 +190,15 @@ first.dose <- doses %>%
 plot_ly(data = first.dose, x = ~group, y = ~dose, color = ~factor(year), colors = "Set1") %>%
     add_boxplot() %>%
     layout(boxmode = "group")
-    # layout(updatemenus = list(
-    #     buttons = list(
-    #         list(method = "restyle",
-    #              args = list("visible", list(TRUE, FALSE, FALSE, FALSE, FALSE)),
-    #              label = "2012"),
-    #         list(method = "restyle",
-    #              args = list("visible", list(FALSE, TRUE, FALSE, FALSE, FALSE)),
-    #              label = "2013"),
-    #         list(method = "restyle",
-    #              args = list("visible", list(FALSE, FALSE, TRUE, FALSE, FALSE)),
-    #              label = "2014"),
-    #         list(method = "restyle",
-    #              args = list("visible", list(FALSE, FALSE, FALSE, TRUE, FALSE)),
-    #              label = "2015"),
-    #         list(method = "restyle",
-    #              args = list("visible", list(FALSE, FALSE, FALSE, FALSE, TRUE)),
-    #              label = "2016")),
-    #     visible = TRUE
-    # ))
-
-# library(rbokeh)
-# figure() %>%
-#     ly_boxplot(x = factor(year), y = dose, data = first.dose)
-
-
 ```
 
 INR
 ========================================================
 
-### Mean INR Days 1 to 10
+Column {.tabset}
+--------------------------------------------------------
+
+### Annual Mean INR
 
 ```{r}
 data.coags <- read_data(data.raw, "labs_coag") %>%
@@ -163,9 +210,14 @@ data.coags <- read_data(data.raw, "labs_coag") %>%
            lab.datetime >= floor_date(warf.start, "day") - days(1),
            lab.datetime <= ceiling_date(warf.stop, "day") + days(1)) %>%
     arrange(pie.id, lab.datetime) %>%
-    mutate(warf.day = as.numeric(difftime(floor_date(lab.datetime, "day"), floor_date(warf.start, "day"), units = "days")),
-           warf.year = floor_date(warf.start, "year")) %>%
-    group_by(pie.id, warf.year, warf.day) %>%
+    mutate(
+        warf.day = as.numeric(difftime(
+            floor_date(lab.datetime, "day"), 
+            floor_date(warf.start, "day"), 
+            units = "days")),
+        warf.month = floor_date(warf.start, "month"),
+        warf.year = floor_date(warf.start, "year")) %>%
+    group_by(pie.id, warf.year, warf.month, warf.day) %>%
     summarize(inr = max(lab.result))
 
 inr.first <- data.coags %>%
@@ -179,12 +231,13 @@ d <- data.coags %>%
            year = as.character(year(warf.year))) %>%
     # left_join(inr.first, by = "pie.id") %>%
     # mutate(inr.change = inr - inr.first) %>%
-    filter(warf.day %in% 1:10) %>%
+    filter(warf.day %in% 0:10) %>%
     # mutate(warf.day = as.character(warf.day)) %>%
     group_by(group, year, warf.day) %>%
     summarize(inr.mean = mean(inr, na.rm = TRUE),
               inr.sd = sd(inr, na.rm = TRUE),
-              inr.sem = inr.sd / sqrt(length(inr))) %>%
+              inr.sem = inr.sd / sqrt(length(inr)),
+              num.pts = n()) %>%
     ungroup() %>%
     arrange(group, year, warf.day) %>%
     group_by(group, year)
@@ -195,50 +248,33 @@ plot_ly(data = d,
         colors = "Set1") %>%
     add_markers(symbol = ~group) %>%
     add_lines(color = ~year)
-
 ```
 
-Orders by Unit
-========================================================
-
-### Consults by Hospital Unit
+### Rolling 6-Month Mean INR
 
 ```{r}
-
-unit.list <- list("HH 3CIM" = "HH 3CP", 
-                  "HH 3ECP" = "HH 3CP", 
-                  "HH 3WCP" = "HH 3CP", 
-                  "HH 4HVI CIMU" = "HVI CIMU", 
-                  "Jones 6 West" = "HH 6JP",
-                  "HH 3JSP" = "HH 3JP",
-                  "HH 5ECP" = "HH 5CP",
-                  "HH 5WCP" = "HH 5CP",
-                  "HH WCAN" = "HH WC6N",
-                  "HH 5EJP" = "HH 5JP",
-                  "HH 5WJP" = "HH 5JP",
-                  "HH 6EJP" = "HH 6JP",
-                  "HH 6WJP" = "HH 6JP",
-                  "HH 8NJP" = "HH 8JP",
-                  "HH 8WJP" = "HH 8JP",
-                  "HH 9EJP" = "HH 9JP",
-                  "HH 9WJP" = "HH 9JP")
-
-units <- data.orders %>%
-    filter(consult == TRUE) %>%
-    distinct(pie.id, order.unit, action.date) %>%
-    mutate(action.year = floor_date(action.date, "year"),
-           year = as.numeric(year(action.year)),
-           order.unit = str_replace_all(order.unit, unit.list)) %>%
-    group_by(order.unit, year) %>%
-    summarize(consults = n()) %>%
+d <- data.coags %>%
+    left_join(ds.pts, by = "pie.id") %>%
+    mutate(group = if_else(pharmacy == TRUE, "pharmacy", "traditional", "traditional")) %>%
     ungroup() %>%
-    mutate(order.unit = coalesce(order.unit, "Other")) %>%
-    spread(year, consults, fill = 0)
+    filter(warf.day %in% 0:10,
+           warf.month >= max(warf.month) - months(6)) %>%
+    group_by(group, warf.day) %>%
+    summarize(inr.mean = mean(inr, na.rm = TRUE),
+              inr.sd = sd(inr, na.rm = TRUE),
+              inr.sem = inr.sd / sqrt(length(inr)),
+              num.pts = n()) %>%
+    ungroup() %>%
+    arrange(group, warf.day) %>%
+    # mutate(warf.month = as.character(warf.month)) %>%
+    group_by(group)
 
-tmp <- as.matrix(units[, 2:6])
-rownames(tmp) <- units$order.unit
-
-d3heatmap(tmp, scale = "column", colors = "OrRd", dendrogram = "none")
+plot_ly(data = d, 
+        x = ~warf.day, 
+        y = ~inr.mean, 
+        colors = "Set1") %>%
+    add_lines(color = ~group) %>%
+    add_markers(color = ~group, size = ~num.pts) 
 ```
 
 
