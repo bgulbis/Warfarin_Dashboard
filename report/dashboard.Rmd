@@ -16,6 +16,7 @@ library(dygraphs)
 library(xts)
 library(RColorBrewer)
 library(plotly)
+library(d3heatmap)
 
 data.raw <- "../data/raw"
 
@@ -26,7 +27,7 @@ data.orders <- read_data(data.raw, "orders") %>%
     as.order_by() %>%
     filter(action.type == "Order") %>%
     mutate(action.date = floor_date(action.datetime, unit = "day"),
-           consult = !str_detect(order, "^warfarin$"))
+           consult = str_detect(order, "Dosing"))
 
 # make tidy data set
 df <- data.orders %>%
@@ -197,24 +198,47 @@ plot_ly(data = d,
 
 ```
 
-INR vs Dose
+Orders by Unit
 ========================================================
 
-### Cumulative Dose
+### Consults by Hospital Unit
 
 ```{r}
-df.inr.dose <- full_join(warf.doses, data.coags, by = c("pie.id", "warf.year", "warf.day")) %>%
-    left_join(ds.pts, by = "pie.id") %>%
-    mutate(group = if_else(pharmacy == TRUE, "pharmacy", "traditional", "traditional"),
-           year = as.character(year(warf.year))) %>%
-    filter(cumdose <= 250)
-    
-library(ggplot2)
 
-ggplot(df.inr.dose, aes(x = cumdose, y = inr, color = group)) +
-    geom_point(alpha = 0.3) +
-    facet_grid(. ~ year)
+unit.list <- list("HH 3CIM" = "HH 3CP", 
+                  "HH 3ECP" = "HH 3CP", 
+                  "HH 3WCP" = "HH 3CP", 
+                  "HH 4HVI CIMU" = "HVI CIMU", 
+                  "Jones 6 West" = "HH 6JP",
+                  "HH 3JSP" = "HH 3JP",
+                  "HH 5ECP" = "HH 5CP",
+                  "HH 5WCP" = "HH 5CP",
+                  "HH WCAN" = "HH WC6N",
+                  "HH 5EJP" = "HH 5JP",
+                  "HH 5WJP" = "HH 5JP",
+                  "HH 6EJP" = "HH 6JP",
+                  "HH 6WJP" = "HH 6JP",
+                  "HH 8NJP" = "HH 8JP",
+                  "HH 8WJP" = "HH 8JP",
+                  "HH 9EJP" = "HH 9JP",
+                  "HH 9WJP" = "HH 9JP")
 
+units <- data.orders %>%
+    filter(consult == TRUE) %>%
+    distinct(pie.id, order.unit, action.date) %>%
+    mutate(action.year = floor_date(action.date, "year"),
+           year = as.numeric(year(action.year)),
+           order.unit = str_replace_all(order.unit, unit.list)) %>%
+    group_by(order.unit, year) %>%
+    summarize(consults = n()) %>%
+    ungroup() %>%
+    mutate(order.unit = coalesce(order.unit, "Other")) %>%
+    spread(year, consults, fill = 0)
+
+tmp <- as.matrix(units[, 2:6])
+rownames(tmp) <- units$order.unit
+
+d3heatmap(tmp, scale = "column", colors = "OrRd", dendrogram = "none")
 ```
 
 
