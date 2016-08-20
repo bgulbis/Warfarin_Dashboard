@@ -2,6 +2,9 @@
 #
 # get list of patient encounters
 
+# Run EDW Query: Patients - by Medication
+#   * Set admit date range to desired time frame
+
 library(dirr)
 library(edwr)
 library(dplyr)
@@ -12,14 +15,16 @@ data.raw <- "data/raw"
 # compress data files
 gzip_files(data.raw)
 
-# change the date to update for new patients
-dc.date <- "7/1/2016"
+# check for patients that already have data pulled
+data.warfarin <- read_data(data.raw, "meds") %>%
+    as.meds_sched() %>%
+    distinct(pie.id)
 
+# generate list of patients to retrieve data
 raw.patients <- read_data(data.raw, "patients") %>%
     as.patients() %>%
     filter(age >= 18,
-           discharge.datetime >= mdy(dc.date, tz = "US/Central") |
-               is.na(discharge.datetime))
+           !(pie.id %in% data.warfarin$pie.id) | is.na(discharge.datetime))
 
 # use the output below to run EDW queries:
 #   Orders - Prompt
