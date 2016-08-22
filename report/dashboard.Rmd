@@ -181,7 +181,7 @@ high.dose <- warf.doses %>%
 doses <- warf.doses %>%
     filter(!(pie.id %in% high.dose$pie.id)) %>%
     left_join(ds.pts, by = "pie.id") %>%
-    mutate(group = if_else(pharmacy == TRUE, "pharmacy", "traditional", "traditional"),
+    mutate(group = if_else(pharmacy == TRUE, "Pharmacy", "Traditional", "Traditional"),
            year = as.character(year(warf.year)))
 
 # add indication
@@ -193,7 +193,9 @@ first.dose <- doses %>%
     
 plot_ly(data = first.dose, x = ~group, y = ~dose, color = ~factor(year), colors = "Set1") %>%
     add_boxplot() %>%
-    layout(boxmode = "group")
+    layout(boxmode = "group",
+           xaxis = list(title = "Group"),
+           yaxis = list(title = "Initial Warfarin Dose (mg)"))
 ```
 
 ### Annual Daily Dose
@@ -213,9 +215,13 @@ df <- doses %>%
 plot_ly(data = df, 
         x = ~warf.day, 
         y = ~dose.mean, 
-        colors = "Set1") %>%
+        colors = "Set1",
+        hoverinfo = "text", 
+        text = paste(df$group, "<br> n = ", df$num.pts, "<br> day = ", df$warf.day, "<br> mean dose = ", round(df$dose.mean, 1))) %>%
     add_markers(symbol = ~group) %>%
-    add_lines(color = ~year)
+    add_lines(color = ~year) %>%
+    layout(xaxis = list(title = "Days of Warfarin"),
+           yaxis = list(title = "Mean Warfarin Dose (mg)"))
 ```
 
 ### Rolling 6-Month Daily Dose
@@ -237,9 +243,14 @@ df <- doses %>%
 plot_ly(data = df, 
         x = ~warf.day, 
         y = ~dose.mean, 
-        colors = "Set1") %>%
+        colors = "Set1",
+        hoverinfo = "text", 
+        text = paste(df$group, "<br> n = ", df$num.pts, "<br> day = ", df$warf.day, "<br> mean dose = ", round(df$dose.mean, 1))) %>%
     add_lines(color = ~group) %>%
-    add_markers(color = ~group, size = ~num.pts) 
+    add_markers(color = ~group, size = ~num.pts) %>%
+    layout(xaxis = list(title = "Days of Warfarin"),
+           yaxis = list(title = "Mean Warfarin Dose (mg)"))
+
 ```
 
 INR
@@ -295,9 +306,14 @@ d <- data.coags %>%
 plot_ly(data = d, 
         x = ~warf.day, 
         y = ~inr.mean, 
-        colors = "Set1") %>%
+        colors = "Set1",
+        hoverinfo = "text", 
+        text = paste(d$group, "<br> n = ", d$num.pts, "<br> day = ", d$warf.day, "<br> mean INR = ", round(d$inr.mean, 2))) %>%
     add_markers(symbol = ~group) %>%
-    add_lines(color = ~year)
+    add_lines(color = ~year) %>%
+    layout(xaxis = list(title = "Days of Warfarin"),
+           yaxis = list(title = "Mean INR"))
+
 ```
 
 ### Rolling 6-Month Mean INR
@@ -322,9 +338,13 @@ d <- data.coags %>%
 plot_ly(data = d, 
         x = ~warf.day, 
         y = ~inr.mean, 
-        colors = "Set1") %>%
+        colors = "Set1",
+        hoverinfo = "text", 
+        text = paste(d$group, "<br> n = ", d$num.pts, "<br> day = ", d$warf.day, "<br> mean INR = ", round(d$inr.mean, 2))) %>%
     add_lines(color = ~group) %>%
-    add_markers(color = ~group, size = ~num.pts) 
+    add_markers(color = ~group, size = ~num.pts) %>%
+    layout(xaxis = list(title = "Days of Warfarin"),
+           yaxis = list(title = "Mean INR"))
 ```
 
 
