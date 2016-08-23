@@ -343,25 +343,42 @@ data.hgb <- read_data(data.raw, "labs_cbc") %>%
 
 crit.hgb <- data.hgb %>%
     filter(lab.result <= 7.1) %>% 
+    left_join(ds.pts, by = "pie.id") %>%
     mutate(lab.day = floor_date(lab.datetime, "day"),
-           lab.week = floor_date(lab.datetime, "week")) 
+           # lab.week = floor_date(lab.datetime, "week"),
+           lab.month = floor_date(lab.datetime, "month"),
+           group = if_else(pharmacy == TRUE, "pharmacy", "traditional", "traditional")) 
 
 df <- crit.hgb %>%
-    group_by(lab.day) %>%
-    summarize(crit.hgb = n()) 
+    group_by(lab.day, group) %>%
+    summarize(n = n()) %>%
+    spread(group, n, fill = 0) %>%
+    ungroup() 
+
+
+crit.med <- crit.hgb %>%
+    filter(lab.month >= max(lab.month) - months(6)) %>%
+    group_by(lab.day, group) %>%
+    summarize(crit.hgb = n()) %>%
+    group_by(group) %>%
+    summarize(median.crit = median(crit.hgb, na.rm = TRUE)) %>%
+    spread(group, median.crit)
 
 hgb.ts <- as.matrix(df) %>%
     as.xts(order.by = df$lab.day, tzone = "US/Central")
     
+start.range <- c(max(crit.hgb$lab.month) - months(6), max(crit.hgb$lab.month))
 
 dyg <- dygraph(hgb.ts, main = "Daily Critical Labs") %>%
-    dySeries("crit.hgb", label = "Critical Hemoglobin") 
-
-dyg %>%
+    dySeries("pharmacy", label = "Pharmacy") %>%
+    dySeries("traditional", label = "Traditional") %>%
+    dyLimit(crit.med$pharmacy, label = "Rolling 6-Month Median Pharmacy") %>%
+    dyLimit(crit.med$traditional, label = "Rolling 6-Month Median Traditional") %>%
     dyOptions(colors = brewer.pal(3, "Set1")) %>%
     dyRoller() %>%
-    dyRangeSelector()
+    dyRangeSelector(start.range)
 
+dyg
 ```
 
 
