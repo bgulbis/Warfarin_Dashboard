@@ -30,4 +30,5 @@ raw.patients <- read_data(data.raw, "patients") %>%
 #   Orders - Prompt
 #   Medications - Inpatient Intermittent - Prompt
 #   Labs - Coags
+#   Labs - CBC
 print(concat_encounters(raw.patients$pie.id))
