@@ -23,6 +23,11 @@ data.warfarin <- read_data(data.raw, "meds") %>%
 # generate list of patients to retrieve data
 raw.patients <- read_data(data.raw, "patients") %>%
     as.patients() %>%
+    arrange(pie.id)
+
+pie.raw <- concat_encounters(raw.patients$pie.id)
+
+new.patients <- raw.patients %>%
     filter(age >= 18,
            !(pie.id %in% data.warfarin$pie.id) | is.na(discharge.datetime))
 
@@ -31,4 +36,4 @@ raw.patients <- read_data(data.raw, "patients") %>%
 #   Medications - Inpatient Intermittent - Prompt
 #   Labs - Coags
 #   Labs - CBC
-print(concat_encounters(raw.patients$pie.id))
+print(concat_encounters(new.patients$pie.id))

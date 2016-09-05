@@ -181,7 +181,7 @@ high.dose <- warf.doses %>%
 doses <- warf.doses %>%
     filter(!(pie.id %in% high.dose$pie.id)) %>%
     left_join(ds.pts, by = "pie.id") %>%
-    mutate(group = if_else(pharmacy == TRUE, "Pharmacy", "Traditional", "Traditional"),
+    mutate(group = if_else(pharmacy == TRUE, "pharmacy", "traditional", "traditional"),
            year = as.character(year(warf.year)))
 
 # add indication
@@ -193,9 +193,7 @@ first.dose <- doses %>%
     
 plot_ly(data = first.dose, x = ~group, y = ~dose, color = ~factor(year), colors = "Set1") %>%
     add_boxplot() %>%
-    layout(boxmode = "group",
-           xaxis = list(title = "Group"),
-           yaxis = list(title = "Initial Warfarin Dose (mg)"))
+    layout(boxmode = "group")
 ```
 
 ### Annual Daily Dose
@@ -215,13 +213,9 @@ df <- doses %>%
 plot_ly(data = df, 
         x = ~warf.day, 
         y = ~dose.mean, 
-        colors = "Set1",
-        hoverinfo = "text", 
-        text = paste(df$group, "<br> n = ", df$num.pts, "<br> day = ", df$warf.day, "<br> mean dose = ", round(df$dose.mean, 1))) %>%
+        colors = "Set1") %>%
     add_markers(symbol = ~group) %>%
-    add_lines(color = ~year) %>%
-    layout(xaxis = list(title = "Days of Warfarin"),
-           yaxis = list(title = "Mean Warfarin Dose (mg)"))
+    add_lines(color = ~year)
 ```
 
 ### Rolling 6-Month Daily Dose
@@ -243,14 +237,9 @@ df <- doses %>%
 plot_ly(data = df, 
         x = ~warf.day, 
         y = ~dose.mean, 
-        colors = "Set1",
-        hoverinfo = "text", 
-        text = paste(df$group, "<br> n = ", df$num.pts, "<br> day = ", df$warf.day, "<br> mean dose = ", round(df$dose.mean, 1))) %>%
+        colors = "Set1") %>%
     add_lines(color = ~group) %>%
-    add_markers(color = ~group, size = ~num.pts) %>%
-    layout(xaxis = list(title = "Days of Warfarin"),
-           yaxis = list(title = "Mean Warfarin Dose (mg)"))
-
+    add_markers(color = ~group, size = ~num.pts) 
 ```
 
 INR
@@ -306,14 +295,9 @@ d <- data.coags %>%
 plot_ly(data = d, 
         x = ~warf.day, 
         y = ~inr.mean, 
-        colors = "Set1",
-        hoverinfo = "text", 
-        text = paste(d$group, "<br> n = ", d$num.pts, "<br> day = ", d$warf.day, "<br> mean INR = ", round(d$inr.mean, 2))) %>%
+        colors = "Set1") %>%
     add_markers(symbol = ~group) %>%
-    add_lines(color = ~year) %>%
-    layout(xaxis = list(title = "Days of Warfarin"),
-           yaxis = list(title = "Mean INR"))
-
+    add_lines(color = ~year)
 ```
 
 ### Rolling 6-Month Mean INR
@@ -338,13 +322,63 @@ d <- data.coags %>%
 plot_ly(data = d, 
         x = ~warf.day, 
         y = ~inr.mean, 
-        colors = "Set1",
-        hoverinfo = "text", 
-        text = paste(d$group, "<br> n = ", d$num.pts, "<br> day = ", d$warf.day, "<br> mean INR = ", round(d$inr.mean, 2))) %>%
+        colors = "Set1") %>%
     add_lines(color = ~group) %>%
-    add_markers(color = ~group, size = ~num.pts) %>%
-    layout(xaxis = list(title = "Days of Warfarin"),
-           yaxis = list(title = "Mean INR"))
+    add_markers(color = ~group, size = ~num.pts) 
+```
+
+Safety
+========================================================
+
+Column {.tabset}
+--------------------------------------------------------
+
+### Critical Hemoglobin
+
+```{r}
+data.hgb <- read_data(data.raw, "labs_cbc") %>%
+    as.labs() %>%
+    tidy_data() %>%
+    filter(lab == "hgb")
+
+crit.hgb <- data.hgb %>%
+    filter(lab.result <= 7.1) %>% 
+    left_join(ds.pts, by = "pie.id") %>%
+    mutate(lab.day = floor_date(lab.datetime, "day"),
+           # lab.week = floor_date(lab.datetime, "week"),
+           lab.month = floor_date(lab.datetime, "month"),
+           group = if_else(pharmacy == TRUE, "pharmacy", "traditional", "traditional")) 
+
+df <- crit.hgb %>%
+    group_by(lab.day, group) %>%
+    summarize(n = n()) %>%
+    spread(group, n, fill = 0) %>%
+    ungroup() 
+
+
+crit.med <- crit.hgb %>%
+    filter(lab.month >= max(lab.month) - months(6)) %>%
+    group_by(lab.day, group) %>%
+    summarize(crit.hgb = n()) %>%
+    group_by(group) %>%
+    summarize(median.crit = median(crit.hgb, na.rm = TRUE)) %>%
+    spread(group, median.crit)
+
+hgb.ts <- as.matrix(df) %>%
+    as.xts(order.by = df$lab.day, tzone = "US/Central")
+    
+start.range <- c(max(crit.hgb$lab.month) - months(6), max(crit.hgb$lab.month))
+
+dyg <- dygraph(hgb.ts, main = "Daily Critical Labs") %>%
+    dySeries("pharmacy", label = "Pharmacy") %>%
+    dySeries("traditional", label = "Traditional") %>%
+    dyLimit(crit.med$pharmacy, label = "Rolling 6-Month Median Pharmacy") %>%
+    dyLimit(crit.med$traditional, label = "Rolling 6-Month Median Traditional") %>%
+    dyOptions(colors = brewer.pal(3, "Set1")) %>%
+    dyRoller() %>%
+    dyRangeSelector(start.range)
+
+dyg
 ```
 
 
