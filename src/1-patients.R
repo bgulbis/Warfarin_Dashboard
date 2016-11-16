@@ -2,12 +2,13 @@
 #
 # get list of patient encounters
 
-# Run EDW Query: Patients - by Medication
-#   * Set admit date range to desired time frame
+# Run EDW Query:
+#   - Patients - by End Date - Clinical Event Prompt
+#      * Set admit date range to desired time frame
 
 library(dirr)
 library(edwr)
-library(dplyr)
+library(tidyverse)
 library(lubridate)
 
 data.raw <- "data/raw"
@@ -15,25 +16,34 @@ data.raw <- "data/raw"
 # compress data files
 gzip_files(data.raw)
 
-# check for patients that already have data pulled
-data.warfarin <- read_data(data.raw, "meds") %>%
-    as.meds_sched() %>%
-    distinct(pie.id)
+# get list of patients already pulled
+completed_pie <- "data/final/patients_completed.csv"
+pulled <- tibble("pie.id" = "")
+
+if (file.exists(completed_pie)) {
+    pulled <- read_csv(completed_pie, col_types = "c?icc")
+}
 
 # generate list of patients to retrieve data
-raw.patients <- read_data(data.raw, "patients") %>%
+raw_patients <- read_data(data.raw, "patients") %>%
     as.patients() %>%
-    arrange(pie.id)
+    arrange(pie.id) %>%
+    anti_join(pulled, by = "pie.id")
 
-pie.raw <- concat_encounters(raw.patients$pie.id)
+pie_edw <- concat_encounters(raw_patients$pie.id, 950)
 
-new.patients <- raw.patients %>%
-    filter(age >= 18,
-           !(pie.id %in% data.warfarin$pie.id) | is.na(discharge.datetime))
+save_pie <- raw_patients %>%
+    filter(!is.na(discharge.datetime))
 
-# use the output below to run EDW queries:
+if (!file.exists(completed_pie)) {
+    x <- FALSE
+} else {
+    x <- TRUE
+}
+write_csv(save_pie, completed_pie, append = x)
+
+# use the output from pie_edw below to run EDW queries:
 #   Orders - Prompt
 #   Medications - Inpatient Intermittent - Prompt
 #   Labs - Coags
 #   Labs - CBC
-print(concat_encounters(new.patients$pie.id))
