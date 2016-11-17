@@ -6,15 +6,14 @@
 #   - Patients - by End Date - Clinical Event Prompt
 #      * Set admit date range to desired time frame
 
-library(dirr)
-library(edwr)
 library(tidyverse)
 library(lubridate)
+library(edwr)
 
 data.raw <- "data/raw"
 
 # compress data files
-gzip_files(data.raw)
+dirr::gzip_files(data.raw)
 
 # get list of patients already pulled
 completed_pie <- "data/final/patients_completed.csv"
@@ -43,7 +42,7 @@ if (!file.exists(completed_pie)) {
 write_csv(save_pie, completed_pie, append = x)
 
 # use the output from pie_edw below to run EDW queries:
-#   Orders - Prompt
+#   Orders - Prompt (send to BI Inbox)
 #   Medications - Inpatient Intermittent - Prompt
 #   Labs - Coags
 #   Labs - CBC
