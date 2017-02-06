@@ -6,6 +6,10 @@
 #   - Patients - by End Date - Clinical Event Prompt
 #      * Set admit date range to desired time frame
 
+# run MBO query
+#   * Patients - by Medication (Generic) - Administration Date
+#       - Date and Time - Administration: set to desired time frame
+
 library(tidyverse)
 library(lubridate)
 library(edwr)
@@ -24,12 +28,13 @@ if (file.exists(completed_pie)) {
 }
 
 # generate list of patients to retrieve data
-raw_patients <- read_data(data.raw, "patients") %>%
-    as.patients() %>%
+raw_patients <- read_data("data/raw/mbo", "patients") %>%
+    as.patients(FALSE, tzone = "UTC") %>%
     arrange(pie.id) %>%
     anti_join(pulled, by = "pie.id")
 
-pie_edw <- concat_encounters(raw_patients$pie.id, 950)
+id_mbo <- concat_encounters(raw_patients$millennium.id)
+# pie_edw <- concat_encounters(raw_patients$pie.id, 950)
 
 save_pie <- raw_patients %>%
     filter(!is.na(discharge.datetime))
@@ -46,3 +51,10 @@ write_csv(save_pie, completed_pie, append = x)
 #   Medications - Inpatient Intermittent - Prompt
 #   Labs - Coags
 #   Labs - CBC
+
+# run MBO queries:
+#   * Orders - Actions
+#       - Mnemonic (Primary Generic) FILTER ON: warfarin, Pharmacy Dosing Service(Warfarin), Pharmacy Dosing Service(Warfarin)., Pharmacy Dosing Service(Coumadin)
+#   * Medications - Inpatient Intermittent - Prompt
+#       - Medication (Generic): warfarin
+
