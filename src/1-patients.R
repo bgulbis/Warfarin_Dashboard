@@ -14,10 +14,10 @@ library(tidyverse)
 library(lubridate)
 library(edwr)
 
-data.raw <- "data/raw"
+dir_raw <- "data/raw/mbo"
 
 # compress data files
-dirr::gzip_files(data.raw)
+dirr::gzip_files(dir_raw)
 
 # get list of patients already pulled
 completed_pie <- "data/final/patients_completed.csv"
@@ -28,10 +28,10 @@ if (file.exists(completed_pie)) {
 }
 
 # generate list of patients to retrieve data
-raw_patients <- read_data("data/raw/mbo", "patients") %>%
-    as.patients(FALSE, tzone = "UTC") %>%
-    arrange(pie.id) %>%
-    anti_join(pulled, by = "pie.id")
+raw_patients <- read_data(dir_raw, "patients", FALSE) %>%
+    as.patients() %>%
+    arrange(millennium.id)
+    # anti_join(pulled, by = "pie.id")
 
 id_mbo <- concat_encounters(raw_patients$millennium.id)
 # pie_edw <- concat_encounters(raw_patients$pie.id, 950)
