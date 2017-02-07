@@ -1,0 +1,81 @@
+---
+title: "Pharmacy Warfarin Dosing Service"
+output: 
+  flexdashboard::flex_dashboard:
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(lubridate)
+library(stringr)
+library(edwr)
+library(dygraphs)
+library(xts)
+library(RColorBrewer)
+
+dir_raw <- "../data/raw/mbo"
+
+# get all warfarin and consult orders
+data_order_actions <- read_data(dir_raw, "order-actions", FALSE) %>%
+    as.order_action() %>%
+    filter(action.type == "Order" | action.type == "Complete") %>%
+    mutate(action.date = floor_date(action.datetime, unit = "day"),
+           consult = str_detect(order, "Dosing"))
+
+# make tidy data set
+df <- data_order_actions %>%
+    distinct(millennium.id, action.date, consult) %>%
+    group_by(millennium.id, action.date) %>%
+    mutate(value = TRUE,
+           consult = if_else(consult == TRUE, "consult", "warfarin")) %>%
+    spread(consult, value) %>%
+    mutate(warfarin = if_else(consult == TRUE & is.na(warfarin), TRUE, warfarin)) %>%
+    gather(order, value, consult, warfarin) %>%
+    filter(!is.na(value)) %>%
+    group_by(millennium.id, action.date, order) %>%
+    summarize(n = n()) %>%
+    group_by(action.date, order) %>%
+    summarize(n = n()) %>%
+    spread(order, n) %>%
+    mutate(warfarin = if_else(is.na(consult), warfarin, warfarin - consult)) %>%
+    gather(order, n, -action.date) %>%
+    mutate(n = coalesce(n, 0L)) %>%
+    spread(order, n) 
+
+ts <- as.matrix(df[, 2:3]) %>% 
+    as.xts(order.by = df$action.date, tzone = "US/Central")
+
+dyg <- dygraph(ts, main = "Daily Warfarin Orders") %>%
+    dySeries("consult", label = "Pharmacy") %>%
+    dySeries("warfarin", label = "Traditional") 
+```
+
+Utilization
+========================================================
+
+### Utilization of Pharmacy Warfarin Dosing Service
+
+```{r}
+start.range <- c(max(df$action.date) - months(12), max(df$action.date))
+
+dyg %>%
+    dyOptions(colors = brewer.pal(3, "Set1")) %>%
+    dyRoller(rollPeriod = 5) %>%
+    dyRangeSelector() %>%
+    dyRangeSelector(start.range)
+
+```
+
+> Data presented as the average over a rolling period of days (default is 5). The rolling period can be adjusted using the text box in the lower left corner of the figure. Set the value to 1 to show individual daily values. Adjust the time period being displayed using the selector at the bottom of the figure.
+
+```{r, echo=FALSE, eval=FALSE}
+df %>%
+    filter(action.date >= mdy("1/1/2016"), action.date < mdy("2/1/2017")) %>%
+    gather(service, num, consult:warfarin) %>% 
+    ggplot(aes(x = action.date, y = num)) +
+    geom_point(aes(color = service), alpha = 0.6) +
+    geom_smooth(aes(color = service), size = 0.5)
+```
+
