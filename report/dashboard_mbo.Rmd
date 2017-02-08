@@ -20,7 +20,9 @@ dir_raw <- "../data/raw/mbo"
 # get all warfarin and consult orders
 data_order_actions <- read_data(dir_raw, "order-actions", FALSE) %>%
     as.order_action() %>%
-    filter(action.type == "Order" | action.type == "Complete") %>%
+    filter(action.type == "Order" | action.type == "Complete",
+           action.provider.role != "HIN Team Licensed",
+           action.provider.role != "DBA") %>%
     mutate(action.date = floor_date(action.datetime, unit = "day"),
            consult = str_detect(order, "Dosing"))
 
@@ -50,6 +52,9 @@ ts <- as.matrix(df[, 2:3]) %>%
 dyg <- dygraph(ts, main = "Daily Warfarin Orders") %>%
     dySeries("consult", label = "Pharmacy") %>%
     dySeries("warfarin", label = "Traditional") 
+
+# x <- filter(data_order_actions, action.date == mdy("02/27/2015"),
+            # action.provider.role != "HIN Team Licensed")
 ```
 
 Utilization
@@ -70,12 +75,12 @@ dyg %>%
 
 > Data presented as the average over a rolling period of days (default is 5). The rolling period can be adjusted using the text box in the lower left corner of the figure. Set the value to 1 to show individual daily values. Adjust the time period being displayed using the selector at the bottom of the figure.
 
-```{r, echo=FALSE, eval=FALSE}
+```{r, eval=FALSE, echo=FALSE, fig.width=6, fig.height=4.5}
 df %>%
-    filter(action.date >= mdy("1/1/2016"), action.date < mdy("2/1/2017")) %>%
+    # filter(action.date >= mdy("1/1/2016"), action.date < mdy("2/1/2017")) %>%
     gather(service, num, consult:warfarin) %>% 
     ggplot(aes(x = action.date, y = num)) +
-    geom_point(aes(color = service), alpha = 0.6) +
-    geom_smooth(aes(color = service), size = 0.5)
+    geom_line(aes(color = service), alpha = 0.6) +
+    geom_smooth(aes(color = service))
 ```
 
