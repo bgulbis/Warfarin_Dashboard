@@ -2,10 +2,6 @@
 #
 # get list of patient encounters
 
-# Run EDW Query:
-#   - Patients - by End Date - Clinical Event Prompt
-#      * Set admit date range to desired time frame
-
 # run MBO query
 #   * Patients - by Medication (Generic) - Administration Date
 #       - Date and Time - Administration: set to desired time frame
@@ -20,41 +16,51 @@ dir_raw <- "data/raw/mbo"
 dirr::gzip_files(dir_raw)
 
 # get list of patients already pulled
-completed_pie <- "data/final/patients_completed.csv"
-pulled <- tibble("pie.id" = "")
+completed_pts <- "data/final/patients_completed_mbo.csv"
+pulled <- tibble("millennium.id" = "")
 
-if (file.exists(completed_pie)) {
-    pulled <- read_csv(completed_pie, col_types = "c?icc")
+if (file.exists(completed_pts)) {
+    pulled <- read_csv(completed_pts, col_types = "c?cdc")
 }
 
 # generate list of patients to retrieve data
 raw_patients <- read_data(dir_raw, "patients", FALSE) %>%
     as.patients() %>%
     arrange(millennium.id)
-    # anti_join(pulled, by = "pie.id")
 
-id_mbo <- concat_encounters(raw_patients$millennium.id)
-# pie_edw <- concat_encounters(raw_patients$pie.id, 950)
+to_pull <- anti_join(raw_patients, pulled, by = "millennium.id")
 
-save_pie <- raw_patients %>%
+all_mbo <- concat_encounters(raw_patients$millennium.id)
+id_mbo <- concat_encounters(to_pull$millennium.id)
+
+save_pts <- raw_patients %>%
     filter(!is.na(discharge.datetime))
 
-if (!file.exists(completed_pie)) {
+if (!file.exists(completed_pts)) {
     x <- FALSE
 } else {
     x <- TRUE
 }
-write_csv(save_pie, completed_pie, append = x)
-
-# use the output from pie_edw below to run EDW queries:
-#   Orders - Prompt (send to BI Inbox)
-#   Medications - Inpatient Intermittent - Prompt
-#   Labs - Coags
-#   Labs - CBC
+write_csv(save_pts, completed_pts, append = x)
 
 # run MBO queries:
 #   * Orders - Actions
 #       - Mnemonic (Primary Generic) FILTER ON: warfarin, Pharmacy Dosing Service(Warfarin), Pharmacy Dosing Service(Warfarin)., Pharmacy Dosing Service(Coumadin)
-#   * Medications - Inpatient Intermittent - Prompt
+#   * Medications - Inpatient - Prompt
 #       - Medication (Generic): warfarin
+#   * Demographics
+#   * Labs - CBC
+#   * Labs - Coags
 
+# run EDW queries:
+#   * Identifiers
+#       - Millennium Encounter ID
+
+persons <- read_data(dir_raw, "identifiers") %>%
+    as.id() %>%
+    anti_join(pulled, by = "millennium.id")
+
+id_edw <- concat_encounters(persons$person.id)
+
+# run EDW queries:
+#   * Encounters - by Person ID

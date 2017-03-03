@@ -26,6 +26,11 @@ data_order_actions <- read_data(dir_raw, "order-actions", FALSE) %>%
     mutate(action.date = floor_date(action.datetime, unit = "day"),
            consult = str_detect(order, "Dosing"))
 
+patient_groups <- data_order_actions %>%
+    group_by(millennium.id) %>%
+    summarize_at("consult", sum) %>%
+    dmap_at("consult", ~ .x > 1)
+
 # make tidy data set
 df <- data_order_actions %>%
     distinct(millennium.id, action.date, consult) %>%
@@ -44,7 +49,9 @@ df <- data_order_actions %>%
     mutate(warfarin = if_else(is.na(consult), warfarin, warfarin - consult)) %>%
     gather(order, n, -action.date) %>%
     mutate(n = coalesce(n, 0L)) %>%
-    spread(order, n) 
+    spread(order, n) %>%
+    filter(action.date >= mdy("7/1/2014"),
+           action.date <= mdy("2/28/2017"))
 
 ts <- as.matrix(df[, 2:3]) %>% 
     as.xts(order.by = df$action.date, tzone = "US/Central")
@@ -84,3 +91,145 @@ df %>%
     geom_smooth(aes(color = service))
 ```
 
+```{r}
+library(forecast)
+ts_consults <- as.matrix(df[, 2]) %>% 
+    as.xts(order.by = df$action.date, tzone = "US/Central")
+
+a <- auto.arima(ts_consults)
+
+f <- forecast(ts_consults, h = 365 / 2, model = a)
+
+plot(f)
+```
+
+```{r}
+keep_visits <- c("Inpatient", "Emergency", "Observation", "Inpatient Snf", "Inpatient Rehab", "Inpatient Psych", "Inpatient LTC", "EC Fast ER Care", "72 Hour ER")
+
+dc_home <- c("Home or Self Care", "Home Care with Home Health", "Left Against Medical Advise", "DC TO HOME/SELF CARE")
+
+patients <- read_data(dir_raw, "patients", FALSE) %>%
+    as.patients() %>%
+    select(millennium.id, discharge.datetime) 
+
+encounters <- read_data(dir_raw, "encounters") %>%
+    as.encounters()
+
+# keep only patients that went home
+tmp_home <- patients %>%
+    inner_join(encounters, by = "millennium.id") %>%
+    filter(disposition %in% dc_home) %>%
+    select(millennium.id, discharge.datetime) 
+
+# find the time from index visit
+revisit <- encounters %>%
+    left_join(tmp_home, by = "millennium.id") %>%
+    mutate(index_visit_id = if_else(!is.na(discharge.datetime), millennium.id, NA_character_)) %>%
+    arrange(person.id, admit.datetime) %>%
+    filter(visit.type %in% keep_visits) %>%
+    group_by(person.id) %>%
+    fill(discharge.datetime, index_visit_id) %>%
+    filter(!is.na(discharge.datetime)) %>%
+    mutate(revisit_days = difftime(admit.datetime, discharge.datetime, units = "days")) %>%
+    filter(revisit_days > 0, revisit_days <= 30) %>%
+    distinct(person.id, index_visit_id, visit.type, .keep_all = TRUE) %>%
+    rename(revisit_id = millennium.id)
+
+# ed visit -> transferred and admitted ?
+```
+
+```{r}
+data_revisit <- patient_groups %>%
+    left_join(patients, by = "millennium.id") %>%
+    left_join(revisit, by = c("millennium.id" = "index_visit_id", "discharge.datetime")) %>%
+    mutate(revisit = !is.na(visit.type),
+           readmit = visit.type == "Inpatient",
+           er = visit.type == "Emergency",
+           obs = visit.type == "Observation",
+           dc_year = floor_date(discharge.datetime, "year"),
+           dc_month = floor_date(discharge.datetime, "month")) %>%
+    filter(!is.na(consult),
+           dc_month < mdy("3/1/2017")) 
+```
+
+```{r}
+data_revisit %>%
+    group_by(consult, dc_year, dc_month) %>%
+    filter(!is.na(dc_month)) %>%
+    summarize_at("revisit", funs(sum(., na.rm = TRUE) / n() * 100)) %>%
+    ggplot(aes(x = dc_month, y = revisit, fill = consult)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    facet_wrap(~ dc_year, scales = "free_x") +
+    coord_cartesian(ylim = c(0, 25))
+```
+
+```{r}
+library(broom)
+
+select(data_revisit, dc_year, consult, revisit) %>%
+    dmap_at("consult", ~ if_else(.x, "pharmacy", "traditional")) %>%
+    dmap_at("revisit", ~ if_else(.x, "revisit", "none")) %>%
+    slice_rows("dc_year") %>%
+    by_slice(~ tidy(chisq.test(.x$consult, .x$revisit)), .collate = "rows") %>%
+    knitr::kable(digits = 3)
+```
+
+```{r}
+data_revisit %>%
+    group_by(consult, dc_year, dc_month) %>%
+    filter(!is.na(dc_month)) %>%
+    summarize_at("readmit", funs(sum(., na.rm = TRUE) / n() * 100)) %>%
+    ggplot(aes(x = dc_month, y = readmit, fill = consult)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    facet_wrap(~ dc_year, scales = "free_x") +
+    coord_cartesian(ylim = c(0, 25))
+```
+
+```{r}
+select(data_revisit, dc_year, consult, readmit) %>%
+    dmap_at("consult", ~ if_else(.x, "pharmacy", "traditional")) %>%
+    dmap_at("readmit", ~ if_else(.x, "readmit", "none")) %>%
+    slice_rows("dc_year") %>%
+    by_slice(~ tidy(chisq.test(.x$consult, .x$readmit)), .collate = "rows") %>%
+    knitr::kable(digits = 3)
+```
+
+```{r}
+data_revisit %>%
+    group_by(consult, dc_year, dc_month) %>%
+    filter(!is.na(dc_month)) %>%
+    summarize_at("er", funs(sum(., na.rm = TRUE) / n() * 100)) %>%
+    ggplot(aes(x = dc_month, y = er, fill = consult)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    facet_wrap(~ dc_year, scales = "free_x") +
+    coord_cartesian(ylim = c(0, 25))
+```
+
+```{r}
+select(data_revisit, dc_year, consult, er) %>%
+    dmap_at("consult", ~ if_else(.x, "pharmacy", "traditional")) %>%
+    dmap_at("er", ~ if_else(.x, "er", "none")) %>%
+    slice_rows("dc_year") %>%
+    by_slice(~ tidy(chisq.test(.x$consult, .x$er)), .collate = "rows") %>%
+    knitr::kable(digits = 3)
+```
+
+```{r}
+data_revisit %>%
+    group_by(consult, dc_year, dc_month) %>%
+    filter(!is.na(dc_month)) %>%
+    summarize_at("obs", funs(sum(., na.rm = TRUE) / n() * 100)) %>%
+    ggplot(aes(x = dc_month, y = obs, fill = consult)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    facet_wrap(~ dc_year, scales = "free_x") +
+    coord_cartesian(ylim = c(0, 25))
+```
+
+```{r}
+select(data_revisit, dc_year, consult, obs) %>%
+    dmap_at("consult", ~ if_else(.x, "pharmacy", "traditional")) %>%
+    dmap_at("obs", ~ if_else(.x, "obs", "none")) %>%
+    slice_rows("dc_year") %>%
+    by_slice(~ tidy(chisq.test(.x$consult, .x$obs)), .collate = "rows") %>%
+    knitr::kable(digits = 3)
+```
