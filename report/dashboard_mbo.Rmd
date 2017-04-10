@@ -51,7 +51,7 @@ df <- data_order_actions %>%
     mutate(n = coalesce(n, 0L)) %>%
     spread(order, n) %>%
     filter(action.date >= mdy("7/1/2014"),
-           action.date <= mdy("2/28/2017"))
+           action.date <= mdy("3/31/2017"))
 
 ts <- as.matrix(df[, 2:3]) %>% 
     as.xts(order.by = df$action.date, tzone = "US/Central")
@@ -88,7 +88,8 @@ df %>%
     gather(service, num, consult:warfarin) %>% 
     ggplot(aes(x = action.date, y = num)) +
     geom_line(aes(color = service), alpha = 0.6) +
-    geom_smooth(aes(color = service))
+    geom_smooth(aes(color = service)) +
+    scale_color_brewer(palette = "Set1")
 ```
 
 ```{r}
@@ -149,7 +150,7 @@ data_revisit <- patient_groups %>%
            dc_year = floor_date(discharge.datetime, "year"),
            dc_month = floor_date(discharge.datetime, "month")) %>%
     filter(!is.na(consult),
-           dc_month < mdy("3/1/2017")) 
+           dc_month < mdy("4/1/2017")) 
 ```
 
 ```{r}

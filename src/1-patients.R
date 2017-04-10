@@ -64,3 +64,5 @@ id_edw <- concat_encounters(persons$person.id)
 
 # run EDW queries:
 #   * Encounters - by Person ID
+
+dirr::gzip_files(dir_raw)
